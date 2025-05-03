@@ -53,3 +53,24 @@ df.columns = ["MEME-ID", "ninguno", "contenido_inapropiado", "discurso_odio"]
 
 print(df.columns)
 
+#mapear cada imagen a su etiqueta
+
+#función para extraer etiqueta
+def obtener_etiqueta(row):
+    if row["discurso_odio"] == 1:
+        return "discurso_odio"
+    elif row["contenido_inapropiado"] == 1:
+        return "contenido_inapropiado"
+    elif row["ninguno"] == 1:
+        return "ninguno"
+    else:
+        return "desconocido"
+
+#aplicar función
+df["etiqueta"] = df.apply(obtener_etiqueta, axis=1)
+
+#solo nos quedamos con MEME-ID y etiqueta
+df = df[["MEME-ID", "etiqueta"]]
+
+#crear diccionario {MEME-ID: etiqueta}
+id_to_label = dict(zip(df["MEME-ID"], df["etiqueta"]))
