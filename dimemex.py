@@ -242,8 +242,57 @@ y_val   = np.array(y_val_filt)
 y_train = np.array([ label_map[l] for l in y_train ], dtype=np.int32)
 y_val   = np.array([ label_map[l] for l in y_val   ], dtype=np.int32)
 
-# Verifica que solo tengas 0,1,2
+# Verifica que solo haya 0,1,2
 print("Clases en train:", np.unique(y_train))
 print("Clases en val:  ", np.unique(y_val))
+
+from transformers import BertTokenizer
+
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+train_encodings = tokenizer(
+    list(texts_train),
+    truncation=True,
+    padding='max_length',
+    max_length=64,
+    return_tensors='tf'
+)
+
+val_encodings = tokenizer(
+    list(texts_val),
+    truncation=True,
+    padding='max_length',
+    max_length=64,
+    return_tensors='tf'
+)
+
+X_train = np.array(X_train, dtype=np.float32)
+X_val = np.array(X_val, dtype=np.float32)
+
+y_train = np.array(y_train).astype(np.int32)
+y_val = np.array(y_val).astype(np.int32)
+
+train_inputs = {
+    "image_input": X_train,
+    "text_input": train_encodings['input_ids'],
+    "attention_mask_input": train_encodings['attention_mask']
+}
+
+val_inputs = {
+    "image_input": X_val,
+    "text_input": val_encodings['input_ids'],
+    "attention_mask_input": val_encodings['attention_mask']
+}
+
+model.fit(
+    train_inputs,
+    y_train,
+    validation_data=(val_inputs, y_val),
+    epochs=1,
+    batch_size=64
+)
+
+
+
 
 
