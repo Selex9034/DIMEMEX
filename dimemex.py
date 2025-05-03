@@ -172,3 +172,78 @@ image_input = Input(shape=(224, 224, 3), name="image_input")
 #texto (lo vamos a tokenizar antes de alimentar a BERT)
 text_input = Input(shape=(MAX_LEN,), dtype=tf.int32, name="text_input")
 attention_mask_input = Input(shape=(MAX_LEN,), dtype=tf.int32, name="attention_mask_input")
+
+vgg = VGG16(include_top=False, weights="imagenet", input_tensor=image_input)
+for layer in vgg.layers:
+    layer.trainable = False  #congelamos VGG16
+
+x_image = layers.Flatten()(vgg.output)
+x_image = layers.Dense(256, activation="relu")(x_image)
+
+bert_model = TFBertModel.from_pretrained('bert-base-uncased')
+
+def bert_layer(inputs):
+    input_ids, attention_mask = inputs
+    outputs = bert_model(input_ids=input_ids, attention_mask=attention_mask)
+    return outputs.pooler_output  # <- (batch_size, 768)
+
+x_text = Lambda(bert_layer, output_shape=(768,))([text_input, attention_mask_input])
+x_text = layers.Dense(256, activation="relu")(x_text)
+
+combined = layers.concatenate([x_image, x_text])
+z = layers.Dense(128, activation="relu")(combined)
+z = layers.Dropout(0.3)(z)
+output = layers.Dense(3, activation="softmax")(z)  #3 clases
+
+model = Model(inputs=[image_input, text_input, attention_mask_input], outputs=output)
+
+model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+model.summary()
+import numpy as np
+
+X_train = np.array(X_train, dtype=np.float32)
+X_val   = np.array(X_val,   dtype=np.float32)
+
+label_map = {
+    "discurso_odio":            0,
+    "contenido_inapropiado":    1,
+    "ninguno":                  2
+}
+
+X_train_filt, texts_train_filt, y_train_filt = [], [], []
+for img, txt, lbl in zip(X_train, texts_train, y_train):
+    if lbl in label_map:                   # solo guardamos si lbl está en el mapa
+        X_train_filt.append(img)
+        texts_train_filt.append(txt)
+        y_train_filt.append(lbl)
+
+X_train = np.array(X_train_filt, dtype=np.float32)
+texts_train = texts_train_filt        # seguimos pasándolo a tokenizar más adelante
+y_train = np.array(y_train_filt)      # strings, por ahora
+
+X_val_filt, texts_val_filt, y_val_filt = [], [], []
+for img, txt, lbl in zip(X_val, texts_val, y_val):
+    if lbl in label_map:
+        X_val_filt.append(img)
+        texts_val_filt.append(txt)
+        y_val_filt.append(lbl)
+
+X_val   = np.array(X_val_filt, dtype=np.float32)
+texts_val = texts_val_filt
+y_val   = np.array(y_val_filt)
+
+
+#ahora sí todo el contenido de y_train/y_val está en label_map
+y_train = np.array([ label_map[l] for l in y_train ], dtype=np.int32)
+y_val   = np.array([ label_map[l] for l in y_val   ], dtype=np.int32)
+
+# Verifica que solo tengas 0,1,2
+print("Clases en train:", np.unique(y_train))
+print("Clases en val:  ", np.unique(y_val))
+
+
