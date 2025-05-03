@@ -1,13 +1,15 @@
 import json
 import re
 import pandas as pd
-import json
 import cv2
 import numpy as np
 from PIL import Image
 import os
 import tensorflow as tf
-
+from sklearn.metrics import f1_score
+import numpy as np
+import random
+import matplotlib.pyplot as plt
 
 
 #Ordenamos los datos en el train_data.json para facilitar su relación con las etiquetas
@@ -292,7 +294,67 @@ model.fit(
     batch_size=64
 )
 
+#Prueba
 
+# 1) Listar y escoger un archivo al azar
+val_dir = "validation"
+val_files = [f for f in os.listdir(val_dir) if f.lower().endswith((".jpg",".png"))]
+random_file = random.choice(val_files)
+img_path = os.path.join(val_dir, random_file)
 
+# 2) Preprocesar imagen
+img = preprocess_image(img_path)          # tu función definida antes
+img_batch = np.expand_dims(img, axis=0)   # (1,224,224,3)
 
+# 3) Obtener texto (si existe en id_to_text, si no queda cadena vacía)
+text = id_to_text.get(random_file, "")
+
+# 4) Tokenizar ese texto
+enc = tokenizer(
+    text,
+    truncation=True,
+    padding="max_length",
+    max_length=64,
+    return_tensors="tf"
+)
+input_ids = enc["input_ids"]              # shape (1,64)
+attn_mask = enc["attention_mask"]         # shape (1,64)
+
+# 5) Hacer la predicción
+preds = model.predict({
+    "image_input": img_batch,
+    "text_input":  input_ids,
+    "attention_mask_input": attn_mask
+})
+pred_class = int(np.argmax(preds, axis=1)[0])
+
+# 6) Mapear de vuelta a texto
+label_map_rev = {0:"discurso_odio", 1:"contenido_inapropiado", 2:"ninguno"}
+pred_label = label_map_rev[pred_class]
+
+# 7) Mostrar imagen con título de la predicción
+plt.figure(figsize=(4,4))
+plt.imshow(img)
+plt.axis("off")
+plt.title(f"{random_file}  →  {pred_label}", fontsize=12)
+plt.show()
+
+#F1-score
+
+# Predecir todas las etiquetas del conjunto de validación
+y_pred_probs = model.predict(val_inputs)
+y_pred = np.argmax(y_pred_probs, axis=1)  # clases predichas (índices)
+
+# y_val deben estar como enteros: 0, 1, 2
+# Si no lo están, asegúrate de convertirlos
+if isinstance(y_val[0], str):
+    label_map = {"discurso_odio": 0, "contenido_inapropiado": 1, "ninguno": 2}
+    y_val = np.array([label_map[label] for label in y_val])
+
+# Calcular F1 score macro y weighted
+f1_macro = f1_score(y_val, y_pred, average='macro')
+f1_weighted = f1_score(y_val, y_pred, average='weighted')
+
+print(f"F1 Score (macro): {f1_macro:.4f}")
+print(f"F1 Score (weighted): {f1_weighted:.4f}")
 
