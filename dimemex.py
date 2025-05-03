@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from PIL import Image
 import os
+import tensorflow as tf
 
 
 
@@ -124,3 +125,50 @@ print(f"X_train shape: {X_train.shape}")
 print(f"y_train shape: {y_train.shape}")
 print(f"X_val shape: {X_val.shape}")
 print(f"y_val shape: {y_val.shape}")
+
+
+import json
+
+with open("train_data_sorted.json", "r", encoding="utf-8") as f:
+    train_data = json.load(f)
+
+id_to_text = {}
+
+for item in train_data:
+    meme_id = item["MEME-ID"]
+    text = item["text"]
+    id_to_text[meme_id] = text
+    
+texts_train = []
+for i in range(len(y_train)):
+    meme_id = df.iloc[i]["MEME-ID"]
+    text = id_to_text.get(meme_id, "")
+    texts_train.append(text)
+
+texts_train = np.array(texts_train)
+
+texts_val = []
+for i in range(len(y_val)):
+    meme_id = df.iloc[i]["MEME-ID"]
+    text = id_to_text.get(meme_id, "")
+    texts_val.append(text)
+
+texts_val = np.array(texts_val)
+
+from transformers import TFBertModel, BertTokenizer
+from tensorflow.keras.applications import VGG16
+from tensorflow.keras import layers, Model, Input
+from tensorflow.keras.layers import Lambda
+
+#tokenizador BERT
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+#parámetros
+MAX_LEN = 64  #máxima longitud del texto tokenizado
+
+#imagen
+image_input = Input(shape=(224, 224, 3), name="image_input")
+
+#texto (lo vamos a tokenizar antes de alimentar a BERT)
+text_input = Input(shape=(MAX_LEN,), dtype=tf.int32, name="text_input")
+attention_mask_input = Input(shape=(MAX_LEN,), dtype=tf.int32, name="attention_mask_input")
