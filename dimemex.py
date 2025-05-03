@@ -5,6 +5,9 @@ import json
 import cv2
 import numpy as np
 from PIL import Image
+import os
+
+
 
 #Ordenamos los datos en el train_data.json para facilitar su relación con las etiquetas
 with open("train_data.json", "r", encoding="utf-8") as f:
@@ -42,3 +45,11 @@ def preprocess_image(img_path, size=(224, 224)):
     img = img.resize(size, Image.Resampling.LANCZOS)
     img = np.array(img) / 255.0  # Normalización [0,1]
     return img
+
+df = pd.read_csv("data.csv", header=None)
+
+#asignar nombres a las columnas
+df.columns = ["MEME-ID", "ninguno", "contenido_inapropiado", "discurso_odio"]
+
+print(df.columns)
+
