@@ -2,7 +2,11 @@ import json
 import re
 import pandas as pd
 import json
+import cv2
+import numpy as np
+from PIL import Image
 
+#Ordenamos los datos en el train_data.json para facilitar su relación con las etiquetas
 with open("train_data.json", "r", encoding="utf-8") as f:
     data = json.load(f)
 
@@ -28,3 +32,13 @@ df_combined = pd.concat([df_json, df_labels], axis=1)
 
 df_combined.to_csv("data.csv", index=False, header=False)
 
+#Preprocesar las imágenes
+
+def preprocess_image(img_path, size=(224, 224)):
+    #convertir a rgb
+    img = Image.open(img_path).convert('RGB')
+
+    #redimensionar imagenes
+    img = img.resize(size, Image.Resampling.LANCZOS)
+    img = np.array(img) / 255.0  # Normalización [0,1]
+    return img
