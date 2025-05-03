@@ -69,8 +69,58 @@ def obtener_etiqueta(row):
 #aplicar función
 df["etiqueta"] = df.apply(obtener_etiqueta, axis=1)
 
+
+
 #solo nos quedamos con MEME-ID y etiqueta
 df = df[["MEME-ID", "etiqueta"]]
 
 #crear diccionario {MEME-ID: etiqueta}
 id_to_label = dict(zip(df["MEME-ID"], df["etiqueta"]))
+
+
+def preprocess_image(image_path):
+    img = cv2.imread(image_path)
+    if img is None:
+        print(f"Error al cargar: {image_path}")
+        return np.zeros((224, 224, 3), dtype=np.uint8)  #imagen vacía para no romper el flujo
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  #OpenCV carga en BGR, convertimos a RGB
+    img = cv2.resize(img, (224, 224))           #redimensionar
+    img = img / 255.0                            #normalizar
+    return img
+
+def load_dataset(directory):
+    images = []
+    labels = []
+
+    for filename in os.listdir(directory):
+        if filename.endswith(".jpg"):
+            img_path = os.path.join(directory, filename)
+            img = preprocess_image(img_path)
+            images.append(img)
+
+            label = id_to_label.get(filename, None)
+            if label is not None:
+                labels.append(label)
+            else:
+                print(f"Advertencia: {filename} no tiene etiqueta.")
+
+    return np.array(images), np.array(labels)
+
+X_train, y_train = load_dataset("train")
+X_val, y_val = load_dataset("validation")
+
+print(f"X_train shape: {X_train.shape}")
+print(f"y_train shape: {y_train.shape}")
+print(f"X_val shape: {X_val.shape}")
+print(f"y_val shape: {y_val.shape}")
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train, y_train, test_size=0.2, random_state=42
+)
+
+print(f"X_train shape: {X_train.shape}")
+print(f"y_train shape: {y_train.shape}")
+print(f"X_val shape: {X_val.shape}")
+print(f"y_val shape: {y_val.shape}")
